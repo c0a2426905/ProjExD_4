@@ -4,6 +4,7 @@ import random
 import sys
 import time
 import pygame as pg
+import pygame.math as pgm
 
 
 WIDTH = 1100  # ゲームウィンドウの幅
@@ -112,6 +113,49 @@ class Bird(pg.sprite.Sprite):
                 self.state = "normal"
 
         screen.blit(self.image, self.rect)
+
+class Shield(pg.sprite.Sprite):
+    """
+    盾に関するクラス
+    """
+    def __init__(self, bird: Bird, life: int):
+        """
+        盾画像Surfaceを生成する
+        引数 bird：盾を展開するこうかとん
+        """
+        super().__init__()
+        image = pg.Surface((bird.rect.height*2, bird.rect.height*2))
+        rect = pg.Rect(bird.rect.height - 10, 0, 20, bird.rect.height*2)
+        pg.draw.rect(image, (0, 0, 255), rect)
+        self.imgs = {
+            (+1, 0): image,  # 右
+            (+1, -1): pg.transform.rotozoom(image, 45, 1.0),  # 右上
+            (0, -1): pg.transform.rotozoom(image, 90, 1.0),  # 上
+            (-1, -1): pg.transform.rotozoom(image, -45, 1.0),  # 左上
+            (-1, 0): pg.transform.flip(image, True, False),  # 左
+            (-1, +1): pg.transform.rotozoom(pg.transform.flip(image, True, False), 45, 1.0),  # 左下
+            (0, +1): pg.transform.rotozoom(image, -90, 1.0),  # 下
+            (+1, +1): pg.transform.rotozoom(image, -45, 1.0),  # 右下
+        }
+        self.image = self.imgs[bird.dire]
+        self.rect = self.image.get_rect()
+        self.mask = pg.mask.from_surface(self.image)
+        self.bird = bird
+        self.life = life  # 盾の耐久時間
+
+    def update(self):
+        """
+        盾をこうかとんの位置に追従させる
+        引数 bird：盾を展開するこうかとん
+        """
+        
+        self.rect.center = pgm.Vector2(self.bird.rect.center) + pgm.Vector2(self.bird.dire)*self.bird.rect.width
+        self.image = self.imgs[self.bird.dire]
+        self.image.set_colorkey((0, 0, 0))
+        self.mask = pg.mask.from_surface(self.image)
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
 
 
 class Bomb(pg.sprite.Sprite):
@@ -326,6 +370,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    shields = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -343,6 +388,13 @@ def main():
             if event.key == pg.K_e and score.value >= 20:
                 score.value -= 20
                 EMP(emys,bombs,screen)
+            if event.type == pg.KEYDOWN and event.key == pg.K_s:
+                shield = Shield(bird, 400)
+                if not shields.sprites():
+                    if score.value >= 50:
+                        score.value -= 50  # 盾展開に50点消費
+                        shields.add(shield)                
+
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -374,6 +426,10 @@ def main():
                     pg.display.update()
                     time.sleep(2)
                     return
+        
+        for bomb in pg.sprite.groupcollide(bombs, shields, True, False, pg.sprite.collide_mask).keys():  # 盾と衝突した爆弾リスト
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.value += 1  # 1点アップ
 
         bird.update(key_lst, screen)
         beams.update()
@@ -382,6 +438,8 @@ def main():
         emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        shields.update()
+        shields.draw(screen)
         exps.update()
         exps.draw(screen)
         score.update(screen)
