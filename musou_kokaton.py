@@ -311,7 +311,9 @@ def main():
             if event.type == pg.KEYDOWN and event.key == pg.K_s:
                 shield = Shield(bird, 400)
                 if not shields.sprites():
-                    shields.add(shield)                
+                    if score.value >= 50:
+                        score.value -= 50  # 盾展開に50点消費
+                        shields.add(shield)                
 
         screen.blit(bg_img, [0, 0])
 
