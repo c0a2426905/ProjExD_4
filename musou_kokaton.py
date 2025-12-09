@@ -4,6 +4,7 @@ import random
 import sys
 import time
 import pygame as pg
+import pygame.math as pgm
 
 
 WIDTH = 1100  # ゲームウィンドウの幅
@@ -111,12 +112,22 @@ class Shield(pg.sprite.Sprite):
         引数 bird：盾を展開するこうかとん
         """
         super().__init__()
-        self.image = pg.Surface((20, bird.rect.height * 2))
-        self.image.fill((0, 0, 255))
-
+        image = pg.Surface((bird.rect.height*2, bird.rect.height*2))
+        rect = pg.Rect(bird.rect.height - 10, 0, 20, bird.rect.height*2)
+        pg.draw.rect(image, (0, 0, 255), rect)
+        self.imgs = {
+            (+1, 0): image,  # 右
+            (+1, -1): pg.transform.rotozoom(image, 45, 1.0),  # 右上
+            (0, -1): pg.transform.rotozoom(image, 90, 1.0),  # 上
+            (-1, -1): pg.transform.rotozoom(image, -45, 1.0),  # 左上
+            (-1, 0): pg.transform.flip(image, True, False),  # 左
+            (-1, +1): pg.transform.rotozoom(pg.transform.flip(image, True, False), 45, 1.0),  # 左下
+            (0, +1): pg.transform.rotozoom(image, -90, 1.0),  # 下
+            (+1, +1): pg.transform.rotozoom(image, -45, 1.0),  # 右下
+        }
+        self.image = self.imgs[bird.dire]
         self.rect = self.image.get_rect()
         self.bird = bird
-        self.rect.center = bird.rect.center
         self.life = life  # 盾の耐久時間
 
     def update(self):
@@ -124,7 +135,10 @@ class Shield(pg.sprite.Sprite):
         盾をこうかとんの位置に追従させる
         引数 bird：盾を展開するこうかとん
         """
-        self.rect.center = self.bird.rect.center
+        
+        self.rect.center = pgm.Vector2(self.bird.rect.center) + pgm.Vector2(self.bird.dire)*self.bird.rect.width
+        self.image = self.imgs[self.bird.dire]
+        self.image.set_colorkey((0, 0, 0))
         self.life -= 1
         if self.life < 0:
             self.kill()
